@@ -35,7 +35,9 @@ def reload(config):
         resume_file = os.path.join(resume, 'checkpoint.pt')
         if os.path.isfile(resume_file):
             print("=> loading checkpoint '{}'".format(resume))
-            checkpoint = torch.load(resume_file)
+            # checkpoint = torch.load(resume_file)
+            checkpoint = torch.load(resume_file,map_location=torch.device('cpu'))
+
 
             config['inference']['net'].load_state_dict(checkpoint['state_dict'])
             config['train']['optimizer'].load_state_dict(checkpoint['optimizer'])

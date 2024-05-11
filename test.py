@@ -8,6 +8,7 @@ import copy
 
 from utils.group import HeatmapParser
 import utils.img
+from utils.visualize import *
 import data.MPII.ref as ds
 
 parser = HeatmapParser()
@@ -167,10 +168,10 @@ def get_img(config, num_eval=2958, num_train=300):
         kps = np.zeros((1, 16, 3))
         kps[0] = kp2
         
-        ## normalize (to make errors more fair on high pixel imgs)
+        ## normalize (to make errors more fair on high pixel imges)
         n = train_f['normalize'][i]
         
-        yield kps, im, c, s, n
+        yield kps, im, c, s, n, orig_img[:,:,::-1]
                 
     
     tr2 = tqdm.tqdm( range(0, num_eval), total = num_eval )
@@ -194,11 +195,12 @@ def get_img(config, num_eval=2958, num_train=300):
         ## normalize (to make errors more fair on high pixel imgs)
         n = val_f['normalize'][i]
         
-        yield kps, im, c, s, n
+        yield kps, im, c, s, n, orig_img[:,:,::-1]
     
 
 def main():
     from train import init
+    print("-"*10+"start_init"+"-"*10)
     func, config = init()
 
     def runner(imgs):
@@ -214,18 +216,30 @@ def main():
         for i in range(ans.shape[0]):
             pred.append({'keypoints': ans[i,:,:]})
         return pred
-
-    gts = []
-    preds = []
-    normalizing = []
+    
+    print("-"*10+"start_test"+"-"*10)
+    gts = []    # groundtruth
+    preds = []  # prediction
+    normalizing = []    # normalizing
     
     num_eval = config['inference']['num_eval']
     num_train = config['inference']['train_num_eval']
-    for anns, img, c, s, n in get_img(config, num_eval, num_train):
+    num_eval=20
+    num_train=20
+    i=0 # index
+
+    for anns, img, c, s, n, oim in get_img(config, num_eval, num_train):
         gts.append(anns)
+
         pred = do(img, c, s)
         preds.append(pred)
         normalizing.append(n)
+        img_visual_gt = visualization(oim,anns[0],mode=0)
+        cv2.imwrite(f'./img_output/crop/crop_{i}.png',img[:,:,::-1])
+        cv2.imwrite(f'./img_output/gt/gt_{i}.png',img_visual_gt)
+        img_visual_predict = visualization(img_visual_gt,pred[0]['keypoints'],mode=1)
+        cv2.imwrite(f'./img_output/predict/net_{i}.png',img_visual_predict)
+        i+=1
 
     mpii_eval(preds, gts, normalizing, num_train)
 

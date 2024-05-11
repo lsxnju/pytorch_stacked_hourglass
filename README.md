@@ -1,5 +1,14 @@
 # Stacked Hourglass Networks in Pytorch
 
+## Changing dataset
+Update the code so that we can get skelontons on different dataset.
+
+### run test.py
+1. If running code w/o cuda, comment the code .cuda in pose.py.
+2. Add the dataset on data/MPII/images
+3. To better visualize the img, using utils.visualize.py to visualize the skelotons
+4. Download pretrained model from Readme. check the code checkpoint = torch.load(resume_file,map_location=torch.device('cpu')), so that the code can be run on cpu.
+
 Based on **Stacked Hourglass Networks for Human Pose Estimation.** [Alejandro Newell](https://www.alejandronewell.com/), [Kaiyu Yang](https://www.cs.princeton.edu/~kaiyuy/), and [Jia Deng](https://www.cs.princeton.edu/~jiadeng/). *European Conference on Computer Vision (ECCV)*, 2016. [Github](https://github.com/princeton-vl/pose-hg-train)
 
 PyTorch code by [Chris Rockwell](https://crockwell.github.io/); adopted from: **Associative Embedding: End-to-end Learning for Joint Detection and Grouping.**

@@ -81,7 +81,7 @@ def make_network(configs):
     ## creating new posenet
     PoseNet = importNet(configs['network'])
     poseNet = PoseNet(**config)
-    forward_net = DataParallel(poseNet.cuda())
+    forward_net = DataParallel(poseNet)#.cuda())
     config['net'] = Trainer(forward_net, configs['inference']['keys'], calc_loss)
     
     ## optimizer, experiment setup
