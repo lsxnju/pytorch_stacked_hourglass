@@ -1,3 +1,4 @@
+import time
 import cv2
 import torch
 import tqdm
@@ -23,9 +24,11 @@ def post_process(det, mat_, trainval, c=None, s=None, resolution=None):
         
     preds = np.copy(cropped_preds)
     ##for inverting predictions from input res on cropped to original image
+
     if trainval != 'cropped':
         for j in range(preds.shape[1]):
             preds[0,j,:2] = utils.img.transform(preds[0,j,:2], c, s, resolution, invert=1)
+
     return preds
 
 def inference(img, func, config, c, s):
@@ -207,6 +210,7 @@ def main():
         return func(0, config, 'inference', imgs=torch.Tensor(np.float32(imgs)))['preds']
 
     def do(img, c, s):
+        print(img.shape,c,s)
         ans = inference(img, runner, config, c, s)
         if len(ans) > 0:
             ans = ans[:,:,:3]
@@ -227,21 +231,79 @@ def main():
     num_eval=20
     num_train=20
     i=0 # index
+    with open(f'log/{time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())}.txt','w') as f:
+        for anns, img, c, s, n, oim in get_img(config, num_eval, num_train):
+            gts.append(anns)
+            f.write(f'i: {i} c: {str(c)} s: {str(s)} shape: {img.shape}\n')
 
-    for anns, img, c, s, n, oim in get_img(config, num_eval, num_train):
-        gts.append(anns)
+            pred = do(img, c, s)
 
-        pred = do(img, c, s)
-        preds.append(pred)
-        normalizing.append(n)
-        img_visual_gt = visualization(oim,anns[0],mode=0)
-        cv2.imwrite(f'./img_output/crop/crop_{i}.png',img[:,:,::-1])
-        cv2.imwrite(f'./img_output/gt/gt_{i}.png',img_visual_gt)
-        img_visual_predict = visualization(img_visual_gt,pred[0]['keypoints'],mode=1)
-        cv2.imwrite(f'./img_output/predict/net_{i}.png',img_visual_predict)
-        i+=1
+            preds.append(pred)
+            normalizing.append(n)
+            img_visual_gt = visualization(oim,anns[0],mode=0)
+            cv2.imwrite(f'./img_output/crop/crop_{i}.png',img[:,:,::-1])
+            cv2.imwrite(f'./img_output/gt/gt_{i}.png',img_visual_gt)
+            img_visual_predict = visualization(img_visual_gt,pred[0]['keypoints'],mode=1)
+            cv2.imwrite(f'./img_output/predict/net_{i}.png',img_visual_predict)
+            i+=1
 
     mpii_eval(preds, gts, normalizing, num_train)
 
+def test_owndata(path_dataset):
+    from train import init
+    print("-"*10+"start_init"+"-"*10)
+    func, config = init()
+
+    def runner(imgs):
+        return func(0, config, 'inference', imgs=torch.Tensor(np.float32(imgs)))['preds']
+    
+    def do(img,c,s):
+
+        ans = inference(img, runner, config, c, s)
+        if len(ans) > 0:
+            ans = ans[:,:,:3]
+
+        ## ans has shape N,16,3 (num preds, joints, x/y/visible)
+        pred = []
+        for i in range(ans.shape[0]):
+            pred.append({'keypoints': ans[i,:,:]})
+        return pred
+
+    def get_img_selfmade(config,path_t):
+        input_res = config['train']['input_res']
+        output_res = config['train']['output_res']
+        ## img
+        orig_img = cv2.imread(path_t)[:,:,::-1]
+        c =[536,288]
+        s = 3
+        im = utils.img.crop(orig_img, c, s, (input_res, input_res))
+        
+
+        return  im, c, s, orig_img[:,:,::-1]
+    i=0
+    list_pred=[]
+    # with open(f'log/selfmadedataset_{time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())}.txt','w') as f:
+    for img_file in os.listdir(path_dataset):
+        print(img_file)
+        img, c, s, oim=get_img_selfmade(config=config, path_t=os.path.join(path_dataset,img_file))
+
+        pred = do(img, c, s)
+
+        pos_torso=cal_torso(pred[0]['keypoints'][8],pred[0]['keypoints'][6])
+        kpts = np.vstack([pred[0]['keypoints'], np.array(pos_torso)])
+        bool_indices = np.array([True]*6+[False]*2+[True]+[False]+[True]*7)
+        list_pred.append( kpts[bool_indices])
+        # img_visual_gt = visualization(oim,pred[0]['keypoints'],mode=0)
+        # cv2.imwrite(f'./img_output/predict_selfmade/selfmade_{i}.png',img_visual_gt)
+        i+=1
+    array_3d = np.array(list_pred)
+
+    # 保存到.npy文件
+    np.save('array_3d.npy', array_3d)
+
+    
 if __name__ == '__main__':
-    main()
+    # main()
+    path_dataset=r'/Users/shuixianli/Desktop/dissertation/pytorch_stacked_hourglass/data/selfmade'
+    test_owndata(path_dataset)
+    
